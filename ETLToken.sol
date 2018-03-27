@@ -2,10 +2,10 @@ pragma solidity ^0.4.11;
 
 import "./ERC20Standard.sol";
 
-contract NewToken is ERC20Standard {
-	function NewToken() {
+contract ETLToken is ERC20Standard {
+	function ETLToken() {
 		totalSupply = 100000000;
-		name = "EVO.LIVE main token";
+		name = "Evolution token";
 		decimals = 6;
 		symbol = "ETL";
 		version = "1.0";
