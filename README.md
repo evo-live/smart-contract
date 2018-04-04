@@ -1,1 +1,1 @@
-# EVO.LIVE ETL ICO Smart contract
+# EVO.LIVE E-talon ETL PresSale Smart contract

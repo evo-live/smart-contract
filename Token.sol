@@ -1,0 +1,293 @@
+pragma solidity ^0.4.18;
+
+contract ERC223ReceivingContract {
+  function tokenFallback(address _from, uint _value, bytes _data);
+}
+
+library SafeMath {
+
+  /**
+  * @dev Multiplies two numbers, throws on overflow.
+  */
+  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+    if (a == 0) {
+      return 0;
+    }
+    uint256 c = a * b;
+    assert(c / a == b);
+    return c;
+  }
+
+  /**
+  * @dev Integer division of two numbers, truncating the quotient.
+  */
+  function div(uint256 a, uint256 b) internal pure returns (uint256) {
+    // assert(b > 0); // Solidity automatically throws when dividing by 0
+    uint256 c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return c;
+  }
+
+  /**
+  * @dev Substracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+  */
+  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    assert(b <= a);
+    return a - b;
+  }
+
+  /**
+  * @dev Adds two numbers, throws on overflow.
+  */
+  function add(uint256 a, uint256 b) internal pure returns (uint256) {
+    uint256 c = a + b;
+    assert(c >= a);
+    return c;
+  }
+}
+
+contract Ownable {
+  using SafeMath for uint256;
+
+  address public owner;
+  address public saleAddress;
+
+  function Ownable() public {
+    owner = msg.sender;
+  }
+
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+  
+  modifier onlyManagment() {
+    require(msg.sender == owner || msg.sender == saleAddress);
+    _;
+  }
+
+  function transferOwnership(address newOwner) public onlyOwner {
+    if (newOwner != address(0)) {
+      owner = newOwner;
+    }
+  }
+
+}
+
+contract ERC20Basic is Ownable {
+  function totalSupply() public view returns (uint256);
+  function balanceOf(address who) public view returns (uint256);
+  function transfer(address to, uint256 value) public returns (bool);
+  event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+contract BasicToken is ERC20Basic {
+    
+  mapping (address => uint256) balances;
+  uint256 totalSupply_;
+  mapping (address => uint256) public freezeBalances;
+  mapping (address => uint256) public freezeTime;
+  mapping (address => uint256) public freeze2Balances;
+  mapping (address => uint256) public freeze2Time;
+  mapping (address => uint256) public freeze3Balances;
+  mapping (address => uint256) public freeze3Time;
+
+  
+  function totalSupply() public view returns (uint256) {
+    return totalSupply_;
+  }
+  
+    /**
+  * @dev transfer token for a specified address
+  * @param _to The address to transfer to.
+  * @param _value The amount to be transferred.
+  */
+  
+  function transfer(address _to, uint256 _value) public returns (bool) {
+    require(_to != address(0));
+    
+    if (now <= freezeTime[msg.sender]) {
+        if (now <= freeze2Time[msg.sender]) {
+            if (now <= freeze3Time[msg.sender]) {
+                require(_value <= balances[msg.sender].sub(freezeBalances[msg.sender]).sub(freeze2Balances[msg.sender]).sub(freeze3Balances[msg.sender]));
+            }
+            require(_value <= balances[msg.sender].sub(freezeBalances[msg.sender]).sub(freeze2Balances[msg.sender]));
+        }
+        require(_value <= balances[msg.sender].sub(freezeBalances[msg.sender]));
+    } else {
+        require(_value <= balances[msg.sender]);   
+    }
+
+    balances[msg.sender] = balances[msg.sender].sub(_value);
+    balances[_to] = balances[_to].add(_value);
+    Transfer(msg.sender, _to, _value);
+    return true;
+  }
+
+  /**
+  * @dev Gets the balance of the specified address.
+  * @param _owner The address to query the the balance of. 
+  * @return An uint256 representing the amount owned by the passed address.
+  */
+  function balanceOf(address _owner) public view returns (uint256 balance) {
+    return balances[_owner];
+  }
+}
+
+contract ERC20 is ERC20Basic {
+  function allowance(address owner, address spender) public view returns (uint256);
+  function transferFrom(address from, address to, uint256 value) public returns (bool);
+  function approve(address spender, uint256 value) public returns (bool);
+}
+
+contract BurnableToken is BasicToken {
+
+  event Burn(address indexed burner, uint256 value);
+
+  /**
+   * @dev Burns a specific amount of tokens.
+   * @param _value The amount of token to be burned.
+   */
+  function burn(uint256 _value) public {
+    require(_value <= balances[msg.sender]);
+    // no need to require value <= totalSupply, since that would imply the
+    // sender's balance is greater than the totalSupply, which *should* be an assertion failure
+
+    address burner = msg.sender;
+    balances[burner] = balances[burner].sub(_value);
+    totalSupply_ = totalSupply_.sub(_value);
+    Burn(burner, _value);
+    Transfer(burner, address(0), _value);
+  }
+}
+
+contract StandardToken is ERC20, BurnableToken {
+
+  mapping (address => mapping (address => uint256)) allowed;
+
+  function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+    
+    require(_to != address(0));
+    
+    if (now <= freezeTime[_from]) {
+        if (now <= freeze2Time[_from]) {
+            if (now <= freeze3Time[_from]) {
+                require(_value <= balances[_from].sub(freezeBalances[_from]).sub(freeze2Balances[_from]).sub(freeze3Balances[_from]));
+            }
+            require(_value <= balances[_from].sub(freezeBalances[_from]).sub(freeze2Balances[_from]));
+        }
+        require(_value <= balances[_from].sub(freezeBalances[_from]));
+    } else {
+        require(_value <= balances[_from]);   
+    }
+    
+    require(_value <= allowed[_from][msg.sender]);
+
+    balances[_to] = balances[_to].add(_value);
+    balances[_from] = balances[_from].sub(_value);
+    allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+
+    Transfer(_from, _to, _value);
+    return true;
+  }
+
+  /**
+   * @dev Aprove the passed address to spend the specified amount of tokens on behalf of msg.sender.
+   * @param _spender The address which will spend the funds.
+   * @param _value The amount of tokens to be spent.
+   */
+  function approve(address _spender, uint256 _value) public returns (bool) {
+    allowed[msg.sender][_spender] = _value;
+    return true;
+  }
+
+  /**
+   * @dev Function to check the amount of tokens that an owner allowed to a spender.
+   * @param _owner address The address which owns the funds.
+   * @param _spender address The address which will spend the funds.
+   * @return A uint256 specifing the amount of tokens still avaible for the spender.
+   */
+  function allowance(address _owner, address _spender) public view returns (uint256) {
+    return allowed[_owner][_spender];
+  }
+}
+
+contract ERC223 is ERC20 {
+  function transfer(address to, uint value, bytes data) returns (bool ok);
+  function transferFrom(address from, address to, uint value, bytes data) returns (bool ok);
+}
+
+contract Standard223Token is ERC223, StandardToken {
+  //function that is called when a user or another contract wants to transfer funds
+  function transfer(address _to, uint _value, bytes _data) returns (bool success) {
+    //filtering if the target is a contract with bytecode inside it
+    if (!super.transfer(_to, _value)) {
+        revert();
+    } // do a normal token transfer
+    if (isContract(_to)) contractFallback(_to, _value, _data);
+    return true;
+  }
+
+  function transferFrom(address _from, address _to, uint _value, bytes _data) returns (bool success) {
+    if (!super.transferFrom(_from, _to, _value)) {
+        revert();
+    } // do a normal token transfer
+    if (isContract(_to)) contractFallback(_to, _value, _data);
+    return true;
+  }
+
+  function transfer(address _to, uint _value) returns (bool success) {
+    return transfer(_to, _value, new bytes(0));
+  }
+
+  function transferFrom(address _from, address _to, uint _value) returns (bool success) {
+    return transferFrom(_from, _to, _value, new bytes(0));
+  }
+
+  //function that is called when transaction target is a contract
+  function contractFallback(address _to, uint _value, bytes _data) private {
+    ERC223ReceivingContract reciever = ERC223ReceivingContract(_to);
+    reciever.tokenFallback(msg.sender, _value, _data);
+  }
+
+  //assemble the given address bytecode. If bytecode exists then the _addr is a contract.
+  function isContract(address _addr) private returns (bool is_contract) {
+    // retrieve the size of the code on target address, this needs assembly
+    uint length;
+    assembly { length := extcodesize(_addr) }
+    return length > 0;
+  }
+}
+
+contract ETLToken is Standard223Token {
+
+  string public name = "E-talon";
+  string public symbol = "ETL";
+  uint8 public decimals = 18;
+  
+  uint256 public INITIAL_SUPPLY = 100000000 * (10 ** uint256(decimals));
+
+  function ETLToken() public {
+    totalSupply_ = INITIAL_SUPPLY;
+    balances[msg.sender] = totalSupply_;
+  }
+
+  function setSaleAddress(address _saleAddress) public onlyOwner {
+      saleAddress = _saleAddress;
+  }
+  
+  function freezePresale(address _to, uint256 _value, uint256 _expireTime) public onlyManagment {
+        freezeBalances[_to] = freezeBalances[_to].add(_value);
+        freezeTime[_to] = _expireTime;
+  }
+   
+  function freeze2Presale(address _to, uint256 _value, uint256 _expireTime) public onlyManagment {
+        freeze2Balances[_to] = freeze2Balances[_to].add(_value);
+        freeze2Time[_to] = _expireTime;
+  }
+   
+  function freeze3Presale(address _to, uint256 _value, uint256 _expireTime) public onlyManagment {
+        freeze3Balances[_to] = freeze3Balances[_to].add(_value);
+        freeze3Time[_to] = _expireTime;
+  }
+}
