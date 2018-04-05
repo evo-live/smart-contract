@@ -1,80 +1,13 @@
 pragma solidity ^0.4.18;
 
+import "github.com/OpenZeppelin/zeppelin-solidity/contracts/math/SafeMath.sol";
+import "github.com/OpenZeppelin/zeppelin-solidity/contracts/ownership/Ownable.sol";
+
 contract ERC223ReceivingContract {
   function tokenFallback(address _from, uint _value, bytes _data);
 }
 
-library SafeMath {
-
-  /**
-  * @dev Multiplies two numbers, throws on overflow.
-  */
-  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-    if (a == 0) {
-      return 0;
-    }
-    uint256 c = a * b;
-    assert(c / a == b);
-    return c;
-  }
-
-  /**
-  * @dev Integer division of two numbers, truncating the quotient.
-  */
-  function div(uint256 a, uint256 b) internal pure returns (uint256) {
-    // assert(b > 0); // Solidity automatically throws when dividing by 0
-    uint256 c = a / b;
-    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-    return c;
-  }
-
-  /**
-  * @dev Substracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
-  */
-  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-    assert(b <= a);
-    return a - b;
-  }
-
-  /**
-  * @dev Adds two numbers, throws on overflow.
-  */
-  function add(uint256 a, uint256 b) internal pure returns (uint256) {
-    uint256 c = a + b;
-    assert(c >= a);
-    return c;
-  }
-}
-
-contract Ownable {
-  using SafeMath for uint256;
-
-  address public owner;
-  address public saleAddress;
-
-  function Ownable() public {
-    owner = msg.sender;
-  }
-
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-  
-  modifier onlyManagment() {
-    require(msg.sender == owner || msg.sender == saleAddress);
-    _;
-  }
-
-  function transferOwnership(address newOwner) public onlyOwner {
-    if (newOwner != address(0)) {
-      owner = newOwner;
-    }
-  }
-
-}
-
-contract ERC20Basic is Ownable {
+contract ERC20Basic {
   function totalSupply() public view returns (uint256);
   function balanceOf(address who) public view returns (uint256);
   function transfer(address to, uint256 value) public returns (bool);
@@ -82,6 +15,7 @@ contract ERC20Basic is Ownable {
 }
 
 contract BasicToken is ERC20Basic {
+  using SafeMath for uint256;
     
   mapping (address => uint256) balances;
   uint256 totalSupply_;
@@ -106,14 +40,14 @@ contract BasicToken is ERC20Basic {
   function transfer(address _to, uint256 _value) public returns (bool) {
     require(_to != address(0));
     
-    if (now <= freezeTime[msg.sender]) {
+    if (now <= freeze3Time[msg.sender]) {
         if (now <= freeze2Time[msg.sender]) {
-            if (now <= freeze3Time[msg.sender]) {
-                require(_value <= balances[msg.sender].sub(freezeBalances[msg.sender]).sub(freeze2Balances[msg.sender]).sub(freeze3Balances[msg.sender]));
+            if (now <= freezeTime[msg.sender]) {
+                require(_value <= balances[msg.sender].sub(freeze3Balances[msg.sender]).sub(freeze2Balances[msg.sender]).sub(freezeBalances[msg.sender]));
             }
-            require(_value <= balances[msg.sender].sub(freezeBalances[msg.sender]).sub(freeze2Balances[msg.sender]));
+            require(_value <= balances[msg.sender].sub(freeze3Balances[msg.sender]).sub(freeze2Balances[msg.sender]));
         }
-        require(_value <= balances[msg.sender].sub(freezeBalances[msg.sender]));
+        require(_value <= balances[msg.sender].sub(freeze3Balances[msg.sender]));
     } else {
         require(_value <= balances[msg.sender]);   
     }
@@ -169,16 +103,16 @@ contract StandardToken is ERC20, BurnableToken {
     
     require(_to != address(0));
     
-    if (now <= freezeTime[_from]) {
-        if (now <= freeze2Time[_from]) {
-            if (now <= freeze3Time[_from]) {
-                require(_value <= balances[_from].sub(freezeBalances[_from]).sub(freeze2Balances[_from]).sub(freeze3Balances[_from]));
+    if (now <= freeze3Time[msg.sender]) {
+        if (now <= freeze2Time[msg.sender]) {
+            if (now <= freezeTime[msg.sender]) {
+                require(_value <= balances[msg.sender].sub(freeze3Balances[msg.sender]).sub(freeze2Balances[msg.sender]).sub(freezeBalances[msg.sender]));
             }
-            require(_value <= balances[_from].sub(freezeBalances[_from]).sub(freeze2Balances[_from]));
+            require(_value <= balances[msg.sender].sub(freeze3Balances[msg.sender]).sub(freeze2Balances[msg.sender]));
         }
-        require(_value <= balances[_from].sub(freezeBalances[_from]));
+        require(_value <= balances[msg.sender].sub(freeze3Balances[msg.sender]));
     } else {
-        require(_value <= balances[_from]);   
+        require(_value <= balances[msg.sender]);   
     }
     
     require(_value <= allowed[_from][msg.sender]);
@@ -259,17 +193,23 @@ contract Standard223Token is ERC223, StandardToken {
   }
 }
 
-contract ETLToken is Standard223Token {
+contract ETLToken is Standard223Token, Ownable {
 
   string public name = "E-talon";
   string public symbol = "ETL";
   uint8 public decimals = 18;
+  address public saleAddress;
   
   uint256 public INITIAL_SUPPLY = 100000000 * (10 ** uint256(decimals));
 
   function ETLToken() public {
     totalSupply_ = INITIAL_SUPPLY;
     balances[msg.sender] = totalSupply_;
+  }
+  
+  modifier onlyManagment() {
+    require(msg.sender == owner || msg.sender == saleAddress);
+    _;
   }
 
   function setSaleAddress(address _saleAddress) public onlyOwner {
