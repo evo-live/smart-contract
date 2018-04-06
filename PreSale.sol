@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.4;
 
 import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
 import "github.com/OpenZeppelin/zeppelin-solidity/contracts/math/SafeMath.sol";
@@ -12,34 +12,19 @@ interface ETLToken {
     function freeze3Presale(address _to, uint256 _value, uint256 _expireTime) external;
 }
 
-contract ERC223ReceivingContract { 
-    function tokenFallback(address _from, uint _value, bytes _data);
-}
-
-contract Standard223Receiver is ERC223ReceivingContract {
-
-  function tokenFallback(address _from, uint _value, bytes _data) {
-    
-  }
-
-  function supportsToken(address token) returns (bool) {
-      return true;
-  }
-
-}
-
-contract ETLTokenPresale is Pausable, usingOraclize, Standard223Receiver {
+contract ETLTokenPresale is Pausable, usingOraclize {
     using SafeMath for uint256;
 
     ETLToken public tokenReward;
 
     uint256 public minimalPrice = 10000000000000; // 0.00001
     uint256 public tokensRaised;
-    uint256 public loyaltyCap = 2000000000000000000000000; // 2mln
-    uint256 public presaleCap = 4000000000000000000000000; // 2mln
+    uint256 public loyaltyCap = 200000000000000; // 2mln
+    uint256 public presaleCap = 400000000000000; // 4mln
 
     uint256 public expiredTime = 1546300800;
-    uint256 public fiveZero = 100000;
+    uint256 constant public fiveZero = 100000;
+    uint256 constant public tenZero = 10000000000;
     
     uint256 public ETHUSD;
     event LogPriceUpdated(string price);
@@ -86,13 +71,13 @@ contract ETLTokenPresale is Pausable, usingOraclize, Standard223Receiver {
                 startPresaleTime = block.timestamp;
             }
             
-            uint256 loyaltyTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10);
+            uint256 loyaltyTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).div(tenZero);
             tokens = loyaltyTokens;
             
         } else {
             
-            uint256 normalTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10);
-            uint256 bonusTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).mul(getBonus()).div(10);
+            uint256 normalTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).div(tenZero);
+            uint256 bonusTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).mul(getBonus()).div(10).div(tenZero);
             tokens = normalTokens.add(bonusTokens);
             tokenReward.freezePresale(buyer, bonusTokens, expiredTime);
             

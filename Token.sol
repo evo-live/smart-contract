@@ -1,11 +1,7 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.4;
 
 import "github.com/OpenZeppelin/zeppelin-solidity/contracts/math/SafeMath.sol";
 import "github.com/OpenZeppelin/zeppelin-solidity/contracts/ownership/Ownable.sol";
-
-contract ERC223ReceivingContract {
-  function tokenFallback(address _from, uint _value, bytes _data);
-}
 
 contract ERC20Basic {
   function totalSupply() public view returns (uint256);
@@ -54,7 +50,7 @@ contract BasicToken is ERC20Basic {
 
     balances[msg.sender] = balances[msg.sender].sub(_value);
     balances[_to] = balances[_to].add(_value);
-    Transfer(msg.sender, _to, _value);
+    emit Transfer(msg.sender, _to, _value);
     return true;
   }
 
@@ -90,8 +86,8 @@ contract BurnableToken is BasicToken {
     address burner = msg.sender;
     balances[burner] = balances[burner].sub(_value);
     totalSupply_ = totalSupply_.sub(_value);
-    Burn(burner, _value);
-    Transfer(burner, address(0), _value);
+    emit Burn(burner, _value);
+    emit Transfer(burner, address(0), _value);
   }
 }
 
@@ -121,7 +117,7 @@ contract StandardToken is ERC20, BurnableToken {
     balances[_from] = balances[_from].sub(_value);
     allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
 
-    Transfer(_from, _to, _value);
+    emit Transfer(_from, _to, _value);
     return true;
   }
 
@@ -146,58 +142,11 @@ contract StandardToken is ERC20, BurnableToken {
   }
 }
 
-contract ERC223 is ERC20 {
-  function transfer(address to, uint value, bytes data) returns (bool ok);
-  function transferFrom(address from, address to, uint value, bytes data) returns (bool ok);
-}
-
-contract Standard223Token is ERC223, StandardToken {
-  //function that is called when a user or another contract wants to transfer funds
-  function transfer(address _to, uint _value, bytes _data) returns (bool success) {
-    //filtering if the target is a contract with bytecode inside it
-    if (!super.transfer(_to, _value)) {
-        revert();
-    } // do a normal token transfer
-    if (isContract(_to)) contractFallback(_to, _value, _data);
-    return true;
-  }
-
-  function transferFrom(address _from, address _to, uint _value, bytes _data) returns (bool success) {
-    if (!super.transferFrom(_from, _to, _value)) {
-        revert();
-    } // do a normal token transfer
-    if (isContract(_to)) contractFallback(_to, _value, _data);
-    return true;
-  }
-
-  function transfer(address _to, uint _value) returns (bool success) {
-    return transfer(_to, _value, new bytes(0));
-  }
-
-  function transferFrom(address _from, address _to, uint _value) returns (bool success) {
-    return transferFrom(_from, _to, _value, new bytes(0));
-  }
-
-  //function that is called when transaction target is a contract
-  function contractFallback(address _to, uint _value, bytes _data) private {
-    ERC223ReceivingContract reciever = ERC223ReceivingContract(_to);
-    reciever.tokenFallback(msg.sender, _value, _data);
-  }
-
-  //assemble the given address bytecode. If bytecode exists then the _addr is a contract.
-  function isContract(address _addr) private returns (bool is_contract) {
-    // retrieve the size of the code on target address, this needs assembly
-    uint length;
-    assembly { length := extcodesize(_addr) }
-    return length > 0;
-  }
-}
-
-contract ETLToken is Standard223Token, Ownable {
+contract ETLToken is StandardToken, Ownable {
 
   string public name = "E-talon";
   string public symbol = "ETL";
-  uint8 public decimals = 18;
+  uint8 public decimals = 8;
   address public saleAddress;
   
   uint256 public INITIAL_SUPPLY = 100000000 * (10 ** uint256(decimals));
