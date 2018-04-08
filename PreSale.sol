@@ -1,4 +1,4 @@
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.18;
 
 import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
 import "github.com/OpenZeppelin/zeppelin-solidity/contracts/math/SafeMath.sol";
@@ -6,10 +6,7 @@ import "github.com/OpenZeppelin/zeppelin-solidity/contracts/ownership/Ownable.so
 import "github.com/OpenZeppelin/zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
 interface ETLToken {
-    function transfer(address receiver, uint amount) external;
-    function freezePresale(address _to, uint256 _value, uint256 _expireTime) external;
-    function freeze2Presale(address _to, uint256 _value, uint256 _expireTime) external;
-    function freeze3Presale(address _to, uint256 _value, uint256 _expireTime) external;
+    function transfer(address receiver, uint amount);
 }
 
 contract ETLTokenPresale is Pausable, usingOraclize {
@@ -17,13 +14,15 @@ contract ETLTokenPresale is Pausable, usingOraclize {
 
     ETLToken public tokenReward;
 
+    mapping (address => uint256) freezeBalances;
+    mapping (address => uint256) freezeTime;
+
     uint256 public minimalPrice = 10000000000000; // 0.00001
     uint256 public tokensRaised;
     uint256 public loyaltyCap = 200000000000000; // 2mln
     uint256 public presaleCap = 400000000000000; // 4mln
 
     uint256 public expiredTime = 1546300800;
-    uint256 constant public fiveZero = 100000;
     uint256 constant public tenZero = 10000000000;
     
     uint256 public ETHUSD;
@@ -71,22 +70,22 @@ contract ETLTokenPresale is Pausable, usingOraclize {
                 startPresaleTime = block.timestamp;
             }
             
-            uint256 loyaltyTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).div(tenZero);
+            uint256 loyaltyTokens = msg.value.mul(ETHUSD).div(getPrice()).mul(10).div(tenZero);
             tokens = loyaltyTokens;
             
         } else {
             
-            uint256 normalTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).div(tenZero);
-            uint256 bonusTokens = msg.value.mul(ETHUSD).div(fiveZero).div(getPrice()).mul(10).mul(getBonus()).div(10).div(tenZero);
-            tokens = normalTokens.add(bonusTokens);
-            tokenReward.freezePresale(buyer, bonusTokens, expiredTime);
+            tokens = msg.value.mul(ETHUSD).div(getPrice()).mul(10).div(tenZero);
+            uint256 bonusTokens = tokens.mul(getBonus()).div(10);
+            freezeBalances[msg.sender] = freezeBalances[msg.sender].add(bonusTokens);
+            freezeTime[msg.sender] = expiredTime;
             
             if (tokensRaised >= presaleCap) {
                 presaleFinished = true;
             }
         }
         
-        tokensRaised = tokensRaised.add(tokens);
+        tokensRaised = tokensRaised.add(tokens).add(bonusTokens);
         tokenReward.transfer(buyer, tokens);
         owner.transfer(msg.value);
     }
@@ -120,8 +119,12 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         result = 0;
         for (i = 0; i < b.length; i++) {
             uint c = uint(b[i]);
+            if (c == 46) {
+                break;
+            }
             if (c >= 48 && c <= 57) {
                 result = result * 10 + (c - 48);
+                require(result != 0);
             }
         }
     }
@@ -159,6 +162,14 @@ contract ETLTokenPresale is Pausable, usingOraclize {
             i = i.add(1);
         }  
    }
+
+    function freezeTimeOf(address _investor) public view returns (uint256 balance) {
+        return freezeTime[_investor];
+    }
+
+    function freezeBalancesOf(address _investor) public view returns (uint256 balance) {
+        return freezeBalances[_investor];
+    }
    
    function addEther() onlyOwner public payable {
        
