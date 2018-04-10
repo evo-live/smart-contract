@@ -1,7 +1,6 @@
 pragma solidity ^0.4.18;
 
 import "github.com/OpenZeppelin/zeppelin-solidity/contracts/math/SafeMath.sol";
-import "github.com/OpenZeppelin/zeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract ERC20Basic {
   function totalSupply() public view returns (uint256);
@@ -118,7 +117,7 @@ contract ETLToken is StandardToken {
   string public symbol = "ETL";
   uint8 public decimals = 8;
   
-  uint256 public INITIAL_SUPPLY = 100000000 * (10 ** uint256(decimals));
+  uint256 public INITIAL_SUPPLY = 10000000000000000; // 100 000 000.00000000 tokens
 
   function ETLToken() public {
     totalSupply_ = INITIAL_SUPPLY;

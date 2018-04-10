@@ -19,19 +19,32 @@ contract ETLTokenPresale is Pausable, usingOraclize {
 
     uint256 public minimalPrice = 10000000000000; // 0.00001
     uint256 public tokensRaised;
-    uint256 public loyaltyCap = 200000000000000; // 2mln
-    uint256 public presaleCap = 400000000000000; // 4mln
-
-    uint256 public expiredTime = 1546300800;
-    uint256 constant public tenZero = 10000000000;
-    
     uint256 public ETHUSD;
+    uint256 public startPresaleTime;
+    uint256 public secPerBlock = 14;
+
+    uint256 constant public expiredTime = 1546300800;
+    uint256 constant public twoWeeks = 1209600; // 2 weeks = 60*60*24*14 = 1209600 => 1209600
+    uint256 constant public tenZero = 10000000000;
+    uint256 constant public loyaltyCap = 200000000000000; // 2mln
+    uint256 constant public presaleCap = 400000000000000; // 4mln
+
+    bool public presaleFinished = false;
+    bool public loyaltyPart = true;
+    bool public oraclizeOn = false;
+    
     event LogPriceUpdated(string price);
     event LogNewOraclizeQuery(string description);
 
-    uint256 public startPresaleTime;
-    bool public presaleFinished = false;
-    bool public loyaltyPart = true;
+    modifier whenOraclizeOff() {
+        require(!oraclizeOn);
+        _;
+    }
+
+    modifier whenOraclizeOn() {
+        require(oraclizeOn);
+        _;
+    }
     
     modifier whenNotFinished() {
         require(!presaleFinished);
@@ -44,7 +57,7 @@ contract ETLTokenPresale is Pausable, usingOraclize {
 
     function getBonus() public view returns (uint256) {
         if (loyaltyPart) return 5;
-        else if (!loyaltyPart && block.timestamp <= startPresaleTime.add(2 weeks)) return 5;
+        else if (!loyaltyPart && block.number <= startPresaleTime.add(twoWeeks.div(secPerBlock))) return 5;
         return 3;
     }
     
@@ -67,11 +80,11 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         if (loyaltyPart) {
             if (tokensRaised >= loyaltyCap) {
                 loyaltyPart = false;
-                startPresaleTime = block.timestamp;
+                startPresaleTime = block.number;
             }
             
-            uint256 loyaltyTokens = msg.value.mul(ETHUSD).div(getPrice()).mul(10).div(tenZero);
-            tokens = loyaltyTokens;
+            tokens = msg.value.mul(ETHUSD).div(getPrice()).mul(10).div(tenZero);
+            tokensRaised = tokensRaised.add(tokens);
             
         } else {
             
@@ -79,18 +92,18 @@ contract ETLTokenPresale is Pausable, usingOraclize {
             uint256 bonusTokens = tokens.mul(getBonus()).div(10);
             freezeBalances[msg.sender] = freezeBalances[msg.sender].add(bonusTokens);
             freezeTime[msg.sender] = expiredTime;
+            tokensRaised = tokensRaised.add(tokens).add(bonusTokens);
             
             if (tokensRaised >= presaleCap) {
                 presaleFinished = true;
             }
         }
         
-        tokensRaised = tokensRaised.add(tokens).add(bonusTokens);
         tokenReward.transfer(buyer, tokens);
         owner.transfer(msg.value);
     }
 
-    function __callback(bytes32 myid, string result) {
+    function __callback(bytes32 myid, string result) whenOraclizeOn {
         if (msg.sender != oraclize_cbAddress()) {
             revert();
         }
@@ -104,7 +117,7 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         }
     }
 
-    function updatePrice() onlyOwner payable {
+    function updatePrice() onlyOwner whenOraclizeOn payable {
         if (oraclize_getPrice("URL") > this.balance) {
             LogNewOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
         } else {
@@ -117,13 +130,13 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         bytes memory b = bytes(s);
         uint i;
         result = 0;
-        for (i = 0; i < b.length; i++) {
+        for (i = 0; i < b.length; i = i.add(1)) {
             uint c = uint(b[i]);
             if (c == 46) {
                 break;
             }
             if (c >= 48 && c <= 57) {
-                result = result * 10 + (c - 48);
+                result = result.mul(10).add(c.sub(48));
                 require(result != 0);
             }
         }
@@ -141,17 +154,30 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         minimalPrice = _minimalPrice;
     }
 
-    function transferTokens(uint256 _tokens) public onlyOwner {
-        uint256 tokens = _tokens.mul(10 ** uint256(18));
-        tokenReward.transfer(owner, tokens); 
+    function turnOnOraclize() whenOraclizeOff public onlyOwner {
+        oraclizeOn = true;
     }
-    
+
+    function turnOffOraclize() whenOraclizeOn public onlyOwner {
+        oraclizeOn = false;
+    }
+
+    function updateSecPerBlock(uint256 _secPerBlock) public onlyOwner {
+        secPerBlock = _secPerBlock;
+    }
+
     function startPresale() public onlyOwner {
         loyaltyPart = false;
-        startPresaleTime = block.timestamp;
+        startPresaleTime = block.number;
+    }
+
+    function transferTokens(uint256 _tokens) public onlyOwner {
+        uint256 tokens = _tokens.mul(100000000); // decimals = 8
+        tokenReward.transfer(owner, tokens); 
     }
 
     function airdrop(address[] _array1, uint256[] _array2) public onlyOwner {
+        require(_array1.length <= 15);
         address[] memory arrayAddress = _array1;
         uint256[] memory arrayAmount = _array2;
         uint256 arrayLength = arrayAddress.length.sub(1);
@@ -171,8 +197,8 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         return freezeBalances[_investor];
     }
    
-   function addEther() onlyOwner public payable {
+    function addEther() onlyOwner public payable {
        
-   }
+    }
 
 }
