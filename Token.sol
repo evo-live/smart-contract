@@ -10,13 +10,24 @@ contract ERC20Basic {
 }
 
 contract BasicToken is ERC20Basic {
+
   using SafeMath for uint256;
     
   mapping (address => uint256) balances;
+
   uint256 totalSupply_;
   
   function totalSupply() public view returns (uint256) {
     return totalSupply_;
+
+ /**
+  * To guard short address attacks.
+  */
+  modifier onlyPayloadSize(uint size) {
+      if (msg.data.length < size + 4) {
+      revert();
+      }
+      _;
   }
   
     /**
@@ -25,8 +36,8 @@ contract BasicToken is ERC20Basic {
   * @param _value The amount to be transferred.
   */
   
-  function transfer(address _to, uint256 _value) public returns (bool) {
-    require(_to != address(0));
+  function transfer(address _to, uint256 _value) public onlyPayloadSize(2 *32) returns (bool) {
+    require(_to != address(0x0));
     require(_value <= balances[msg.sender]);
 
     balances[msg.sender] = balances[msg.sender].sub(_value);
@@ -76,9 +87,9 @@ contract StandardToken is ERC20, BurnableToken {
 
   mapping (address => mapping (address => uint256)) allowed;
 
-  function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+  function transferFrom(address _from, address _to, uint256 _value) public onlyPayloadSize(3 * 32) returns (bool) {
     
-    require(_to != address(0));
+    require(_to != address(0x0));
     require(_value <= balances[msg.sender]);
     require(_value <= allowed[_from][msg.sender]);
 
@@ -96,6 +107,7 @@ contract StandardToken is ERC20, BurnableToken {
    * @param _value The amount of tokens to be spent.
    */
   function approve(address _spender, uint256 _value) public returns (bool) {
+   /** require((_value == 0) || (allowed[msg.sender][_spender] == 0)); **/
     allowed[msg.sender][_spender] = _value;
     return true;
   }
@@ -118,6 +130,7 @@ contract ETLToken is StandardToken {
   uint8 public decimals = 8;
   
   uint256 public INITIAL_SUPPLY = 10000000000000000; // 100 000 000.00000000 tokens
+  /* uint256 public INITIAL_SUPPLY = 6200000e18; something like this just for readability */
 
   function ETLToken() public {
     totalSupply_ = INITIAL_SUPPLY;

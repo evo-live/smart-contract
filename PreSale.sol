@@ -28,6 +28,7 @@ contract ETLTokenPresale is Pausable, usingOraclize {
     uint256 constant public tenZero = 10000000000;
     uint256 constant public loyaltyCap = 200000000000000; // 2mln
     uint256 constant public presaleCap = 400000000000000; // 4mln
+  /* uint256 constant public presaleCap = 6200000e18;  something like this just for readability */
 
     bool public presaleFinished = false;
     bool public loyaltyPart = true;
@@ -55,6 +56,7 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         tokenReward = ETLToken(_tokenReward);
     }
 
+/* Use some kind of meaningful variable names instead of numbers in return */
     function getBonus() public view returns (uint256) {
         if (loyaltyPart) return 5;
         else if (!loyaltyPart && block.number <= startPresaleTime.add(twoWeeks.div(secPerBlock))) return 5;
@@ -71,7 +73,8 @@ contract ETLTokenPresale is Pausable, usingOraclize {
     }
 
     function buy(address buyer) whenNotPaused whenNotFinished public payable {
-        require(buyer != address(0));
+        /** require(validPurchase() && tokensSold < totalTokensForSale) **/
+        require(buyer != address(0x0));
         require(msg.value != 0);
         require(msg.value >= minimalPrice);
 
@@ -102,6 +105,12 @@ contract ETLTokenPresale is Pausable, usingOraclize {
         tokenReward.transfer(buyer, tokens);
         owner.transfer(msg.value);
     }
+/**
+ function validPurchase() internal view returns (bool) {
+        bool withinPeriod = now >= startTime && now <= endTime; 
+        bool nonZeroPurchase = msg.value != 0; 
+        return withinPeriod && nonZeroPurchase;
+    } **/
 
     function __callback(bytes32 myid, string result) whenOraclizeOn {
         if (msg.sender != oraclize_cbAddress()) {
