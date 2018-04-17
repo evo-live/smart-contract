@@ -20,23 +20,13 @@ contract BasicToken is ERC20Basic {
   function totalSupply() public view returns (uint256) {
     return totalSupply_;
 
- /**
-  * To guard short address attacks.
-  */
-  modifier onlyPayloadSize(uint size) {
-      if (msg.data.length < size + 4) {
-      revert();
-      }
-      _;
-  }
-  
     /**
   * @dev transfer token for a specified address
   * @param _to The address to transfer to.
   * @param _value The amount to be transferred.
   */
   
-  function transfer(address _to, uint256 _value) public onlyPayloadSize(2 *32) returns (bool) {
+  function transfer(address _to, uint256 _value) public returns (bool) {
     require(_to != address(0x0));
     require(_value <= balances[msg.sender]);
 
@@ -126,7 +116,7 @@ contract StandardToken is ERC20, BurnableToken {
 contract ETLToken is StandardToken {
 
   string public name = "E-talon";
-  string public symbol = "ETL";
+  string public symbol = "ETN";
   uint8 public decimals = 8;
   
   uint256 public INITIAL_SUPPLY = 10000000000000000; // 100 000 000.00000000 tokens
