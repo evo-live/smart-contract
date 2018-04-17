@@ -19,8 +19,9 @@ contract BasicToken is ERC20Basic {
   
   function totalSupply() public view returns (uint256) {
     return totalSupply_;
+  }
 
-    /**
+  /**
   * @dev transfer token for a specified address
   * @param _to The address to transfer to.
   * @param _value The amount to be transferred.
