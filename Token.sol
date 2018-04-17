@@ -77,7 +77,7 @@ contract StandardToken is ERC20, BurnableToken {
 
   mapping (address => mapping (address => uint256)) allowed;
 
-  function transferFrom(address _from, address _to, uint256 _value) public onlyPayloadSize(3 * 32) returns (bool) {
+  function transferFrom(address _from, address _to, uint256 _value) returns (bool) {
     
     require(_to != address(0x0));
     require(_value <= balances[msg.sender]);
